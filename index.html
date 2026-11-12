@@ -1,0 +1,719 @@
+<!DOCTYPE html><html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Cửa cuốn</title>
+<!-- Giao dien that cua mach. CSS 3D thuan, khong thu vien ngoai -> chay duoc ca khi vao bang mang rieng cua mach.
+     Sua file nay roi chay: python3 build_page.py  (sinh lai page_html.h) -->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+ --bg:#0b0d12;--card:#151a23;--card2:#1c222d;--line:#272e3c;
+ --tx:#eef1f6;--dim:#8792a6;--ac:#5b8cff;--ok:#22c55e;--wa:#f59e0b;--dg:#ef4444;
+ --r:16px;--rx:58deg;--rz:-32deg}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);
+ font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+ display:grid;grid-template-columns:1fr 400px;overflow:hidden}
+
+/* ---------- canh 3D ---------- */
+#view{position:relative;overflow:hidden;perspective:2400px;cursor:grab;touch-action:none;
+ background:radial-gradient(ellipse at 50% 60%,#171c27 0%,#0b0d12 70%)}
+#view.drag{cursor:grabbing}
+#stage{position:absolute;left:50%;top:54%;width:0;height:0;transform-style:preserve-3d}
+#stage div{position:absolute;transform-style:preserve-3d}
+.f{backface-visibility:visible;border-radius:2px}
+.plane{transform-style:flat!important}
+.ground{background:#121722;border-radius:40px;
+ background-image:linear-gradient(#1b2130 1px,transparent 1px),linear-gradient(90deg,#1b2130 1px,transparent 1px);
+ background-size:50px 50px;box-shadow:0 0 0 1px #1d2433 inset}
+.drive{background:linear-gradient(#262d3b,#1a202c);border-radius:6px}
+.inner{background:#07090d}
+.xr .f{transition:opacity .35s}
+body.xray .xr .f{opacity:.16}
+body.xray .xr.encl .f{opacity:.1}
+.inside{opacity:0;transition:opacity .35s}
+body.xray .inside{opacity:1}
+.shutter{background:repeating-linear-gradient(180deg,#cfd6e0 0 9px,#aeb8c6 9px 10px,#e2e7ee 10px 11px);
+ border-bottom:7px solid #6d7a8d;transition:box-shadow .3s}
+.shutter.locked{border-bottom-color:var(--dg);box-shadow:0 0 18px rgba(239,68,68,.55)}
+
+/* ---------- lop phu 2D: nhan + chum song ---------- */
+#ov{position:absolute;inset:0;pointer-events:none}
+#ov svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.lbl{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+ background:#fff3c4;color:#3a2f12;border:2px solid #f5d76e;border-radius:999px;
+ padding:2px 10px;font-size:12px;font-weight:650;box-shadow:0 3px 10px rgba(0,0,0,.35);transition:opacity .3s}
+.lbl.k{background:#222938;color:#dfe6f2;border-color:#3a4458}
+.lbl.x{opacity:0}
+body.xray .lbl.nx{opacity:0}
+body.xray .lbl.x{opacity:1}
+body.nolbl .lbl{opacity:0!important}
+.flow{stroke-dasharray:6 10;animation:flow .55s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-16}}
+.ring{transform-box:fill-box;transform-origin:center;animation:ring 1s ease-out infinite}
+.ring.d2{animation-delay:.33s}.ring.d3{animation-delay:.66s}
+@keyframes ring{from{transform:scale(.2);opacity:.9}to{transform:scale(1.6);opacity:0}}
+
+/* ---------- thanh cong cu tren canh ---------- */
+#tools{position:absolute;left:16px;top:16px;display:flex;gap:8px;flex-wrap:wrap;z-index:2;right:16px}
+.tb{background:rgba(28,34,45,.85);border:1px solid var(--line);color:var(--dim);border-radius:999px;
+ padding:7px 14px;font:600 13px inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(6px);transition:.15s}
+.tb.on{background:rgba(91,140,255,.2);border-color:var(--ac);color:#cfdcff}
+.hint{position:absolute;left:16px;bottom:14px;color:#566074;font-size:12px}
+
+/* ---------- panel ---------- */
+#panel{overflow-y:auto;padding:20px 16px calc(28px + env(safe-area-inset-bottom));border-left:1px solid var(--line);
+ background:linear-gradient(180deg,#0e1118,#0b0d12)}
+.pw{max-width:980px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.4px}
+.sub{color:var(--dim);font-size:12.5px;margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:7px;background:var(--card2);border:1px solid var(--line);
+ border-radius:999px;padding:6px 12px;font-size:12px;color:#c3cbd8;white-space:nowrap;font-weight:550}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+section{background:linear-gradient(180deg,#161b25,#131821);border:1px solid var(--line);border-radius:18px;
+ padding:16px;margin-bottom:14px;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.25)}
+.cols{display:grid;grid-template-columns:1fr;gap:0 14px}
+h2{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:650;color:#dfe5ee;margin:0 0 14px;letter-spacing:-.1px}
+.ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;
+ background:rgba(91,140,255,.14);color:#8fb0ff}
+.ic svg{width:16px;height:16px}
+.ic.g{background:rgba(34,197,94,.13);color:#5fd88d}.ic.p{background:rgba(176,124,240,.15);color:#c49cf5}
+
+/* the chinh: trang thai + dieu khien */
+.hero{padding:18px;background:radial-gradient(120% 90% at 0% 0%,rgba(91,140,255,.13),transparent 55%),linear-gradient(180deg,#171d29,#131821)}
+.htop{display:flex;align-items:center;gap:16px}
+.mdoor{position:relative;width:64px;height:58px;flex:none;border-radius:8px 8px 3px 3px;background:#07090d;
+ border:3px solid #e9c6b0;border-top-width:9px;overflow:hidden}
+.mdoor i{position:absolute;left:0;right:0;top:0;height:100%;border-bottom:3px solid #6d7a8d;transition:height .2s,border-color .2s;
+ background:repeating-linear-gradient(180deg,#cfd6e0 0 4px,#9eaaba 4px 5px)}
+.mdoor.locked i{border-bottom-color:var(--dg)}
+.grow{flex:1;min-width:0}
+.big{font:700 34px/1.05 ui-monospace,Menlo,monospace;letter-spacing:-1.5px}
+.state{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:600;
+ padding:3px 10px;border-radius:999px;background:rgba(34,197,94,.12);color:#6ee59b}
+.state.mv{background:rgba(91,140,255,.15);color:#9bb8ff}
+.state.lk{background:rgba(239,68,68,.14);color:#ff8a8a}
+.meter{height:8px;border-radius:99px;background:#0b0e14;border:1px solid var(--line);overflow:hidden;margin:16px 0 16px}
+.meter>i{display:block;height:100%;border-radius:99px;transition:width .25s,background .25s}
+.meta{color:var(--dim);font-size:12px;margin-top:3px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.act{--c:91,140,255;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:104px;
+ border-radius:15px;border:1px solid rgba(var(--c),.32);color:var(--tx);font:650 15px inherit;font-family:inherit;cursor:pointer;
+ background:linear-gradient(180deg,rgba(var(--c),.13),rgba(var(--c),.03));transition:transform .12s,box-shadow .2s,border-color .2s;padding:12px 6px}
+.act:hover{border-color:rgba(var(--c),.6);box-shadow:0 6px 22px rgba(var(--c),.16)}
+.act:active{transform:scale(.95)}
+.act .o{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--c),.18);color:rgb(var(--c))}
+.act svg{width:22px;height:22px}
+.act .c{font:10.5px ui-monospace,Menlo,monospace;color:var(--dim);font-weight:400}
+.act.mo{--c:34,197,94}.act.dung{--c:245,158,11}.act.dong{--c:91,140,255}.act.khoa{--c:239,68,68}
+.foot{display:flex;align-items:center;gap:7px;color:#6b7589;font-size:11.5px;margin-top:13px}
+.foot svg{width:14px;height:14px;flex:none}
+
+/* kiem tra song */
+.gauge{display:flex;align-items:center;gap:16px}
+.gauge svg{width:92px;height:92px;flex:none;transform:rotate(-90deg)}
+.gauge .gv{position:relative;width:92px;height:92px;flex:none}
+.gauge .gt{position:absolute;inset:0;display:grid;place-items:center;font:700 22px ui-monospace,Menlo,monospace;letter-spacing:-1px}
+#garc{transition:stroke-dashoffset .5s,stroke .3s}
+.glb{font-weight:650;font-size:14.5px}
+.seg{display:flex;background:#0b0e14;border:1px solid var(--line);border-radius:11px;padding:3px;margin-top:14px;gap:3px}
+.seg span{color:#5f6a7e;font-size:11.5px;align-self:center;padding:0 8px 0 6px;white-space:nowrap}
+.chip{flex:1;background:transparent;border:0;color:var(--dim);border-radius:8px;padding:7px 4px;
+ font:600 12.5px inherit;font-family:inherit;cursor:pointer;transition:.15s}
+.chip.on{background:var(--card2);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:rgba(91,140,255,.1);
+ border:1px solid rgba(91,140,255,.35);color:#b5c9ff;border-radius:11px;padding:11px;font:600 13.5px inherit;font-family:inherit;cursor:pointer;margin-top:10px;transition:.15s}
+.btn:hover{background:rgba(91,140,255,.18)}
+.btn svg{width:16px;height:16px}
+
+/* che do hoc */
+.sw{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.sw h2{margin:0}
+.sw .d{color:var(--dim);font-size:12px;margin:4px 0 0 37px}
+.tg{position:relative;width:52px;height:30px;border-radius:999px;background:#2b3240;border:1px solid var(--line);cursor:pointer;flex:none;transition:.2s}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#8792a6;transition:.2s}
+.tg.on{background:rgba(34,197,94,.24);border-color:var(--ok)}
+.tg.on::after{left:25px;background:var(--ok)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-top:8px;
+ background:#0f131b;border:1px solid var(--line);border-radius:11px}
+.code{font:600 14.5px ui-monospace,Menlo,monospace}
+.tag{font-size:11px;font-weight:650;color:#6ee59b;background:rgba(34,197,94,.12);padding:3px 8px;border-radius:999px;white-space:nowrap}
+.empty{color:var(--dim);font-size:12.5px;text-align:center;padding:16px 8px;margin-top:10px;border:1px dashed var(--line);border-radius:11px}
+
+/* wifi */
+.wrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;
+ background:#0f131b;border:1px solid var(--line);border-radius:12px}
+.wrow b{font-size:14px}.wrow .meta{margin:0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.st{background:#0f131b;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.st .k{color:#6b7589;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.st .v{font-size:15px;font-weight:650;margin-top:2px}
+.st .v small{color:var(--dim);font-weight:500;font-size:11.5px}
+#toast{position:fixed;left:50%;transform:translateX(-50%) translateY(14px);bottom:26px;background:#eef1f6;color:#0b0d12;
+ padding:11px 20px;border-radius:11px;font-size:14px;font-weight:600;opacity:0;transition:.26s;pointer-events:none;z-index:9}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.act{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.act::before{content:"";position:absolute;inset:0;background:rgba(var(--c),.32);transform:scaleX(0);transform-origin:left}
+.act.hold::before{transform:scaleX(1);transition:transform .9s linear}
+.act>*{position:relative}
+.act[disabled]{opacity:.35;cursor:default;box-shadow:none}
+.act[disabled]:active{transform:none}
+.dot.bad{background:var(--wa)}.dot.live{background:var(--ac)}
+.gt small{font-size:11px;font-weight:500;margin-left:2px;color:var(--dim)}
+.gv.live #garc{animation:gp 1s ease-in-out infinite}
+@keyframes gp{50%{opacity:.45}}
+.tag.w{color:#fbbf4f;background:rgba(245,158,11,.13)}.tag.b{color:#9bb8ff;background:rgba(91,140,255,.15)}
+.tag.n{color:var(--dim);background:var(--card2)}
+.cap{padding:10px 12px;margin-top:8px;background:#0f131b;border:1px solid var(--line);border-radius:11px}
+.cap-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.ch{background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.35);color:#9bb8ff;border-radius:9px;
+ padding:7px 2px;font:600 12.5px inherit;font-family:inherit;cursor:pointer}
+.ch:active{transform:scale(.94)}
+.btn.gh{background:transparent;border-color:var(--line);color:var(--dim);font-weight:500}
+details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;color:#9bb8ff;font-size:13px;font-weight:600;list-style:none;padding:4px 0}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:var(--dim)}details[open] summary::before{content:"▾ "}
+input,select{width:100%;background:#0b0e14;border:1px solid var(--line);color:var(--tx);border-radius:11px;
+ padding:11px 12px;font-size:14.5px;margin-top:8px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--ac)}
+input::placeholder{color:#5b6579}
+.fr{display:flex;gap:8px}.fr select{flex:1}.fr .btn{width:auto;margin-top:8px;padding:0 16px}
+@media (min-width:901px){.grid{grid-template-columns:1fr 1fr}}
+@media (max-width:900px) and (min-width:640px){.cols{grid-template-columns:1fr 1fr}.cols section:last-child{grid-column:1/-1}}
+@media (max-width:480px){.grid{grid-template-columns:1fr 1fr}.big{font-size:30px}}
+@media (max-width:900px){
+ body{grid-template-columns:1fr;grid-template-rows:56vh auto;overflow:auto;height:auto}
+ #panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+ #view{height:56vh}
+}
+#gate{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:22px;
+ background:rgba(11,13,18,.93);backdrop-filter:blur(7px)}
+#gate.on{display:flex}
+#gate .bx{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;width:100%;max-width:310px}
+#gate .t{font-size:17px;font-weight:700}
+#gate .s{color:var(--dim);font-size:13px;margin-top:5px;line-height:1.45}
+#gate .btn{margin-top:10px}
+/* ban tren cloud: hoc lenh, do song va doi WiFi deu phai dung sat mach */
+body.cloud #ssig,body.cloud #slearn,body.cloud #wf{display:none}
+</style></head><body>
+
+<div id="gate"><div class="bx">
+  <div class="t" id="gtitle">Mạch đang khoá</div>
+  <div class="s" id="gmsg">Nhập PIN để dùng</div>
+  <input id="gu" autocomplete="username" placeholder="Tên đăng nhập broker" style="display:none"
+   onkeydown="if(event.key==='Enter')gateOk()">
+  <input id="gp" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN"
+   onkeydown="if(event.key==='Enter')gateOk()">
+  <button class="btn" onclick="gateOk()">Mở</button>
+</div></div>
+
+<div id="view">
+  <div id="stage"></div>
+  <div id="ov"><svg id="svg"><defs>
+    <linearGradient id="cone" gradientUnits="userSpaceOnUse"><stop offset="0" stop-opacity=".55"/><stop offset="1" stop-opacity=".05"/></linearGradient>
+  </defs><g id="beam"></g></svg></div>
+  <div id="tools">
+    <button class="tb" id="bx" onclick="tgl('xray')">Nhìn xuyên</button>
+    <button class="tb on" id="bauto" onclick="tgl('auto')">Tự xoay</button>
+    <button class="tb on" id="blbl" onclick="tgl('lbl')">Nhãn</button>
+    <button class="tb on" id="blink" onclick="tgl('link')">Đường sóng</button>
+    <button class="tb" onclick="resetCam()">Góc mặc định</button>
+  </div>
+  <div class="hint">Kéo để xoay · cuộn để phóng to</div>
+</div>
+
+<div id="panel"><div class="pw">
+  <header>
+    <div><h1>Cửa cuốn</h1><div class="sub" id="sub">đang tải…</div></div>
+    <div class="pill"><span class="dot" id="wd"></span><span id="wt">—</span></div>
+  </header>
+
+  <section class="hero">
+    <div class="htop">
+      <div class="mdoor" id="mdoor"><i id="mshut"></i></div>
+      <div class="grow">
+        <div class="big" id="dpct">—</div>
+        <div class="state" id="dst">đang tải…</div>
+      </div>
+    </div>
+    <div class="meter"><i id="dbar"></i></div>
+    <div class="grid" id="acts"></div>
+    <div class="foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span><b style="color:#c3cbd8">Giữ nút ~1 giây để phát lệnh.</b> <span id="dnote">Mạch không có cảm biến cửa — vị trí là ước lượng theo lệnh đã phát và remote mạch nghe được.</span></span></div>
+  </section>
+
+  <div class="cols">
+  <section id="ssig">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/></svg></span>Kiểm tra sóng<span class="meta" style="margin:0 0 0 auto;font-weight:400" id="sago"></span></h2>
+    <div class="gauge">
+      <div class="gv" id="gv"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#0b0e14" stroke-width="10"/>
+        <circle id="garc" cx="50" cy="50" r="42" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>
+        <div class="gt" id="sq">—</div></div>
+      <div class="grow"><div class="glb" id="slb"></div><div class="meta" id="sinfo"></div></div>
+    </div>
+    <div class="foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>Cầm remote thật đứng sát hộp nhận của cửa, bấm giữ một nút ~2 giây. Đường sóng từ cửa về mạch cũng là đường mạch phát ngược lại.</div>
+  </section>
+
+  <section id="slearn">
+    <div class="sw"><h2><span class="ic p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/></svg></span>Chế độ học</h2>
+      <div class="tg" id="tg" onclick="tog()"></div></div>
+    <div class="d" id="lst" style="color:var(--dim);font-size:12px;margin:4px 0 0 37px">đang tắt</div>
+    <div id="caps"></div>
+  </section>
+
+  <section>
+    <h2><span class="ic g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1"/></svg></span>WiFi nhà</h2>
+    <div class="wrow"><div><b id="wn">—</b><div class="meta" id="wi"></div></div><span class="tag n" id="wtag">—</span></div>
+    <div class="stats">
+      <div class="st"><div class="k">Đã chạy</div><div class="v" id="s_up">—</div></div>
+      <div class="st"><div class="k">Sóng WiFi</div><div class="v" id="s_rssi">—</div></div>
+      <div class="st"><div class="k">RAM trống</div><div class="v" id="s_heap">—</div></div>
+      <div class="st"><div class="k">Rớt mạng</div><div class="v" id="s_drop">—</div></div>
+    </div>
+    <details id="wf" ontoggle="if(this.open&&!scanned)scan()"><summary>Đổi WiFi</summary>
+      <div class="fr"><select id="wsel" onchange="pick()"><option value="">— chọn mạng —</option></select>
+        <button class="btn gh" id="sbt" onclick="scan()">Dò</button></div>
+      <input id="ws" placeholder="hoặc gõ tay tên WiFi (mạng ẩn)" autocomplete="off">
+      <input id="wp" placeholder="Mật khẩu WiFi" type="password" autocomplete="off">
+      <button class="btn" onclick="savewifi()">Lưu và kết nối</button>
+      <div class="note" style="color:var(--dim);font-size:11.5px;margin-top:9px">Mật khẩu lưu trong bộ nhớ của mạch, không gửi đi đâu khác. Mạch chỉ bắt được WiFi 2.4GHz.</div>
+    </details>
+    <div class="note" id="pinw" style="color:var(--wa);font-size:11.5px;margin-top:10px;display:none"></div>
+    <div class="note" id="wapn" style="color:var(--dim);font-size:11.5px;margin-top:10px;display:none">Đổi WiFi chỉ làm được khi nối điện thoại vào mạng riêng của mạch (<b>CuaCuon-Setup</b>) rồi vào <b>http://192.168.4.1</b>.</div>
+  </section>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.16.1/mqtt.min.js"></script>
+<script>
+// ================= dung canh 3D =================
+// Truc: X phai, Y huong ve nguoi xem, Z len tren. Mat tien nha nam o y = F.
+const S=document.getElementById('stage'), F=100;
+function el(cls,p){const d=document.createElement('div');d.className=cls;(p||S).appendChild(d);return d;}
+function shade(h,f){const n=parseInt(h.slice(1),16);
+  const c=[n>>16,n>>8&255,n&255].map(v=>Math.max(0,Math.min(255,Math.round(v*f))));
+  return 'rgb('+c.join(',')+')';}
+function face(b,w,h,tf,col){const f=el('f',b);
+  f.style.cssText=`width:${w}px;height:${h}px;left:${-w/2}px;top:${-h/2}px;background:${col};transform:${tf}`;return f;}
+// hop chu nhat: (x,y) tam day, z day, w theo X, d theo Y, h theo Z
+function box(o){
+  const b=el('box '+(o.cls||''),o.p);
+  b.style.transform=`translate3d(${o.x}px,${o.y}px,${o.z||0}px)`;
+  const {w,d,h,c}=o;
+  face(b,w,d,`translateZ(${h}px)`,shade(c,1));
+  face(b,w,h,`translate3d(0,${d/2}px,${h/2}px) rotateX(-90deg)`,shade(c,.84));
+  face(b,w,h,`translate3d(0,${-d/2}px,${h/2}px) rotateX(90deg)`,shade(c,.6));
+  face(b,d,h,`translate3d(${w/2}px,0,${h/2}px) rotateZ(-90deg) rotateX(-90deg)`,shade(c,.72));
+  face(b,d,h,`translate3d(${-w/2}px,0,${h/2}px) rotateZ(90deg) rotateX(-90deg)`,shade(c,.66));
+  if(o.bottom)face(b,w,d,'translateZ(0)',shade(c,.5));
+  return b;}
+function plane(cls,x,y,z,w,d){const p=el('plane '+cls);
+  p.style.cssText=`width:${w}px;height:${d}px;left:${-w/2}px;top:${-d/2}px;transform:translate3d(${x}px,${y}px,${z}px)`;return p;}
+// diem neo vo hinh de chieu ra toa do man hinh (cho nhan va chum song)
+const A={};
+function anchor(k,x,y,z){const a=el('anc');a.style.cssText=`width:1px;height:1px;transform:translate3d(${x}px,${y}px,${z}px)`;A[k]=a;}
+
+plane('ground',130,F+10,-1,1450,1100);
+plane('drive',0,F+170,0,330,340);
+plane('inner',0,F-175,.5,500,290);
+
+const WALL='#f1d3bf', PIL='#e9c6b0';
+// mat tien: 2 tru + dam ngang, chua lo cua 320 x 230
+box({cls:'xr',x:-210,y:F-15,w:100,d:30,h:300,c:PIL});
+box({cls:'xr',x: 210,y:F-15,w:100,d:30,h:300,c:PIL});
+box({cls:'xr',x:0,y:F-15,z:230,w:320,d:30,h:70,c:WALL});
+// than nha phia sau
+box({cls:'xr',x:-250,y:F-180,w:20,d:300,h:300,c:WALL});
+box({cls:'xr',x: 250,y:F-180,w:20,d:300,h:300,c:WALL});
+box({cls:'xr',x:0,y:F-320,w:520,d:20,h:300,c:WALL});
+box({cls:'xr',x:0,y:F-170,z:300,w:550,d:350,h:14,c:'#d9a98f'});
+// xe may trong nha - chi de thay chieu sau khi nhin xuyen
+box({cls:'inside',x:-60,y:F-150,w:40,d:150,h:60,c:'#5b6b86'});
+
+// la cua cuon: treo tu z=230, chieu cao thay doi theo vi tri cua
+const SH=el('shutter f');
+SH.style.cssText=`width:316px;height:230px;left:-158px;top:0;transform-origin:158px 0;transform:translate3d(0,${F-12}px,230px) rotateX(-90deg)`;
+
+// hop cuon + motor va bo nhan cua cua
+box({x:0,y:F+28,z:228,w:360,d:56,h:60,c:'#8fa4c4'});
+box({x:205,y:F+22,z:238,w:42,d:28,h:36,c:'#f2b8cc'});
+box({x:222,y:F+22,z:274,w:3,d:3,h:38,c:'#e9edf3'});
+
+// tru + tu dieu khien chua mach ESP32
+const EX=560,EY=F+250;
+box({x:EX,y:EY,w:16,d:16,h:150,c:'#525d70'});
+box({cls:'xr encl',x:EX,y:EY,z:150,w:130,d:46,h:130,c:'#dcd5f2'});
+box({cls:'inside',x:EX-25,y:EY,z:170,w:44,d:8,h:62,c:'#2f9e6b'});   // ESP32-C6
+box({cls:'inside',x:EX+30,y:EY,z:222,w:30,d:8,h:24,c:'#5b8cff'});   // TX 433
+box({cls:'inside',x:EX+30,y:EY,z:178,w:36,d:8,h:18,c:'#b07cf0'});   // RX 433
+box({x:EX+42,y:EY,z:274,w:3,d:3,h:62,c:'#e9edf3'});                 // anten
+
+anchor('ant',EX+42,EY,336); anchor('rcv',222,F+22,312);
+anchor('tu',EX-20,EY,280);  anchor('esp',EX-25,EY,236);
+anchor('tx',EX+30,EY,250);  anchor('rx',EX+30,EY,198);
+anchor('motor',-60,F+28,292); anchor('door',0,F,120); anchor('nhan',190,F+22,276);
+
+// ================= lop phu: nhan =================
+const OV=document.getElementById('ov'), LB=[];
+function label(k,t,cls,dx,dy){const d=document.createElement('div');d.className='lbl '+(cls||'');d.textContent=t;OV.appendChild(d);LB.push([k,d,dx||0,dy||0]);}
+label('tu','Tủ điều khiển','nx');label('motor','Hộp cuốn + motor','k');label('nhan','Bộ nhận của cửa','k');
+label('door','Cửa cuốn hầm xe','k');
+label('esp','ESP32-C6','x',-62,0);label('tx','TX 433','x',58,-6);label('rx','RX 433','x',58,22);
+
+// ================= camera =================
+const V=document.getElementById('view');
+let rx=58,rz=-32,zoom=1,auto=true,t0=performance.now(),swayBase=-32;
+function fit(){zoom=Math.min(V.clientWidth/1250,V.clientHeight/680);}
+function resetCam(){rx=58;rz=swayBase=-32;fit();}
+fit();addEventListener('resize',fit);
+let drag=null;
+V.addEventListener('pointerdown',e=>{if(e.target.closest('#tools'))return;drag={x:e.clientX,y:e.clientY};V.classList.add('drag');V.setPointerCapture(e.pointerId);});
+V.addEventListener('pointermove',e=>{if(!drag)return;
+  rz-=(e.clientX-drag.x)*.35;rx=Math.max(25,Math.min(80,rx-(e.clientY-drag.y)*.25));
+  drag={x:e.clientX,y:e.clientY};swayBase=rz;t0=performance.now();});
+V.addEventListener('pointerup',()=>{drag=null;V.classList.remove('drag');});
+V.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.3,Math.min(2.5,zoom*Math.exp(-e.deltaY*.0012)));},{passive:false});
+
+// ================= cua + song (du lieu that tu mach) =================
+let st=null,pos=0,dir=0,known=false,locked=false,travel=40000;   // pos 0 = dong kin, 1 = mo het
+let beam=null,lastTx=-1;
+function qPct(){const g=st&&st.sig;if(!g||g.slot==-9||g.live>0||g.n<3)return null;return Math.round(g.n*100/g.exp);}
+function qColor(){const p=qPct();return p==null?'#5b8cff':p>=85?'#22c55e':p>=60?'#f59e0b':'#ef4444';}
+
+const SVG=document.getElementById('beam'), CONE=document.getElementById('cone');
+function pt(k){const r=A[k].getBoundingClientRect(),v=V.getBoundingClientRect();return [r.left-v.left,r.top-v.top];}
+function drawOverlay(now){
+  for(const [k,d,dx,dy] of LB){const [x,y]=pt(k);d.style.left=(x+dx)+'px';d.style.top=(y-6+dy)+'px';}
+  const a=pt('ant'),b=pt('rcv'),col=qColor();
+  let h='';
+  const live=beam&&now<beam.until;
+  if(showLink||live){
+    const [p,r]=live&&beam.rev?[b,a]:[a,b];
+    if(live){
+      const dx=r[0]-p[0],dy=r[1]-p[1],L=Math.hypot(dx,dy)||1,nx=-dy/L*30,ny=dx/L*30;
+      CONE.setAttribute('x1',p[0]);CONE.setAttribute('y1',p[1]);CONE.setAttribute('x2',r[0]);CONE.setAttribute('y2',r[1]);
+      CONE.querySelectorAll('stop').forEach(s=>s.setAttribute('stop-color',col));
+      h+=`<polygon points="${p[0]},${p[1]} ${r[0]+nx},${r[1]+ny} ${r[0]-nx},${r[1]-ny}" fill="url(#cone)"/>`;
+      h+=`<line class="flow" x1="${p[0]}" y1="${p[1]}" x2="${r[0]}" y2="${r[1]}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`;
+      for(const c of ['','d2','d3'])h+=`<circle class="ring ${c}" cx="${r[0]}" cy="${r[1]}" r="22" fill="none" stroke="${col}" stroke-width="2.5"/>`;
+    }else{
+      h+=`<line x1="${p[0]}" y1="${p[1]}" x2="${r[0]}" y2="${r[1]}" stroke="${col}" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 7" stroke-linecap="round"/>`;
+    }
+  }
+  if(SVG._h!==h){SVG.innerHTML=h;SVG._h=h;}
+}
+
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;
+  if(auto&&!drag)rz=swayBase+22*Math.sin((now-t0)/2600);
+  S.style.transform=`scale(${zoom}) rotateX(${rx}deg) rotateZ(${rz}deg) translate3d(-170px,${-F-20}px,-150px)`;
+  // noi suy giua 2 lan hoi mach cho cua chay muot
+  if(dir){pos+=dir*dt*1000/travel;if(pos>=1||pos<=0){pos=Math.max(0,Math.min(1,pos));dir=0;}}
+  SH.style.height=Math.max(6,230*(1-(known?pos:0)))+'px';
+  SH.classList.toggle('locked',locked);
+  drawOverlay(now);
+  doorUI();
+  requestAnimationFrame(frame);
+}
+
+// ================= panel =================
+const ICON={
+ mo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+ dung:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2.5"/></svg>',
+ dong:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+ khoa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>'};
+const VN={mo:'Mở',dong:'Đóng',dung:'Dừng',khoa:'Khoá'};
+const $=id=>document.getElementById(id);
+
+// ================= duong truyen =================
+// 'http' : trang do chinh mach phuc vu - goi /api/*, nhanh nhat, chay duoc ca khi mat mang.
+// 'mqtt' : ban dat tren cloud - noi qua broker, bam duoc tu 4G. build_cloud.py sinh ra.
+const MODE='mqtt';
+const CLOUD={host:'c15f1d2f.ala.asia-southeast1.emqxsl.com',port:8084,path:'/mqtt',id:'cua1',tls:true};
+const SKEY=['mo','dong','dung','khoa'],SNAME=['Mở','Đóng','Dừng','Khoá'];
+
+// PIN chi nam trong may nay (localStorage), gui o header X-Pin moi lan goi API.
+// Mach khong dat PIN -> khong bao gio nhan 401 -> cong nay khong bao gio hien.
+let pin='';try{pin=localStorage.getItem('pin')||'';}catch(e){}
+async function api(u,o){
+ o=o||{};
+ if(pin)o.headers=Object.assign({},o.headers,{'X-Pin':pin});
+ const r=await fetch(u,o);
+ if(r.status===401||r.status===429)gate(r.status===429);
+ return r;
+}
+function gate(locked,msg){
+ clearTimeout(timer);
+ if(MODE==='mqtt'){
+  $('gtitle').textContent='Kết nối tới cửa';
+  $('gmsg').textContent=msg||(mqCfg()?'Sai tài khoản hoặc mật khẩu broker':'Nhập tài khoản MQTT của điện thoại');
+  $('gu').style.display='';$('gp').placeholder='Mật khẩu broker';$('gp').inputMode='text';
+ }else{
+  $('gmsg').textContent=locked?'Sai PIN nhiều lần — chờ một phút rồi thử lại'
+    :pin?'PIN không đúng':'Nhập PIN để dùng';
+ }
+ $('gate').classList.add('on');
+ if(!locked)setTimeout(()=>$(MODE==='mqtt'?'gu':'gp').focus(),60);
+}
+function gateOk(){
+ if(MODE==='mqtt'){
+  const u=$('gu').value.trim(),w=$('gp').value;
+  if(!u||!w)return;
+  try{localStorage.setItem('mq',JSON.stringify({u:u,p:w}));}catch(e){}
+  $('gp').value='';$('gate').classList.remove('on');
+  if(mc){try{mc.end(true);}catch(e){}mc=null;}
+  mqStart();return;
+ }
+ const v=$('gp').value.trim();if(!v)return;
+ pin=v;try{localStorage.setItem('pin',v);}catch(e){}
+ $('gp').value='';$('gate').classList.remove('on');load();
+}
+
+// ---------------- duong truyen MQTT (chi ban tren cloud) ----------------
+// Mat khau broker KHONG nam trong file nay: hoi mot lan roi giu trong may.
+// Ai co link cung khong mo duoc cua neu khong co tai khoan.
+let mc=null,mqOnline=false;
+function mqCfg(){try{return JSON.parse(localStorage.getItem('mq')||'null');}catch(e){return null;}}
+
+// Goi trang thai gon tu mach -> dung hinh dang ma giao dien dang doc
+function mqState(m){
+ const sl=m.sl||[0,0,0,0];
+ return {learn:0,caps:[],ssid:'',staok:1,stast:9,stamsg:'',staip:'',
+  sig:{live:0,n:0,exp:0,ms:0,slot:-9,code:0,ago:0},
+  slots:SKEY.map((k,i)=>({key:k,name:SNAME[i],code:sl[i]?'đã học':0,bits:24,proto:1,delay:308})),
+  door:{k:m.k,p:m.p,d:m.d,lk:m.lk,tr:m.tr},txn:m.txn,
+  mqtt:{st:2,msg:'',drops:0,cmdn:m.cmdn},
+  sys:{up:m.up,heap:m.heap,minheap:m.heap,block:m.heap,rssi:m.rssi,drops:0,pinrej:0,boot:''}};
+}
+
+function mqStart(){
+ if(typeof mqtt==='undefined'){$('sub').textContent='Không tải được thư viện MQTT — kiểm tra mạng.';return;}
+ const c=mqCfg();
+ if(!c){gate(false);return;}
+ const t='cua/'+CLOUD.id;
+ mc=mqtt.connect((CLOUD.tls?'wss':'ws')+'://'+CLOUD.host+':'+CLOUD.port+CLOUD.path,{
+  username:c.u,password:c.p,
+  clientId:'web-'+Math.random().toString(16).slice(2,10),   // trung client id la hai ben day nhau ra
+  keepalive:30,reconnectPeriod:4000,connectTimeout:8000,clean:true});
+
+ mc.on('connect',()=>{mc.subscribe([t+'/state',t+'/online'],{qos:0});});
+ mc.on('message',(topic,buf)=>{
+  const v=buf.toString();
+  if(topic===t+'/online'){
+   mqOnline=v==='1';
+   if(!mqOnline)offline(); else if(st)apply();
+   return;
+  }
+  // CHI topic online moi quyet dinh mach con song hay khong. State la retained:
+  // mach chet van con ban cu nam tren broker, nhan duoc no khong co nghia la mach song.
+  let m;try{m=JSON.parse(v);}catch(e){return;}
+  st=mqState(m);fails=0;apply();
+ });
+ mc.on('error',e=>{
+  const code=e&&e.code;
+  if(code===4||code===5||/not auth|bad user|refus/i.test((e&&e.message)||'')){
+   try{mc.end(true);}catch(_){}
+   mc=null;gate(false);
+  }
+ });
+ mc.on('offline',()=>offline());
+}
+
+// Hoi trang thai noi tiep nhau (khong chong lenh), co han 4s, dung khi tab bi an
+let fails=0,timer=0;
+async function load(){
+ if(MODE==='mqtt')return;            // broker tu day trang thai ve, khong phai hoi
+ clearTimeout(timer);
+ const ac=new AbortController(),to=setTimeout(()=>ac.abort(),4000);
+ try{
+  const r=await api('/api/state',{signal:ac.signal});
+  if(!r.ok){clearTimeout(to);return;}          // 401/429: cong PIN da hien, ngung hoi lai
+  st=await r.json();fails=0;apply();
+ }
+ catch(e){if(++fails>=2)offline();}
+ clearTimeout(to);
+ if(!document.hidden)timer=setTimeout(load,fails?3000:1000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
+function offline(){
+ $('wd').className='dot bad';
+ $('wt').textContent=MODE==='mqtt'?'mạch mất kết nối':'mất kết nối';
+ $('sub').textContent=MODE==='mqtt'?'Broker báo mạch đang offline — mất điện hoặc mất mạng nhà.'
+                                   :'Không liên lạc được với mạch — đang thử lại…';}
+
+function apply(){
+  const d=st.door||{};
+  known=!!d.k;locked=!!d.lk;travel=d.tr||40000;pos=(d.p||0)/1000;dir=d.d||0;lastDoor='';
+  if(lastTx>=0&&st.txn!==lastTx)beam={rev:false,until:performance.now()+1300};   // lenh phat tu may khac
+  lastTx=st.txn;
+  if(st.sig&&st.sig.live>0)beam={rev:true,until:performance.now()+1500};          // remote that dang phat
+  headUI();actsUI();sigUI();learnUI();capsUI();wifiUI();
+}
+
+function headUI(){
+  const learned=st.slots.filter(s=>s.code).length;
+  $('sub').textContent='Hầm gửi xe · '+learned+'/4 nút đã học';
+  const wd=$('wd'),wt=$('wt');
+  if(MODE==='mqtt'){wd.className='dot '+(mqOnline?'on':'bad');
+    wt.textContent=mqOnline?'qua Internet':'mạch mất kết nối';return;}
+  if(st.stast==2){wd.className='dot on';wt.textContent=st.ssid;}
+  else if(st.stast==1){wd.className='dot live';wt.textContent='đang nối';}
+  else if(st.stast==3){wd.className='dot bad';wt.textContent='mất WiFi nhà';}
+  else{wd.className='dot';wt.textContent='mạng riêng';}
+}
+
+let actsKey='';
+function actsUI(){
+  const key=st.slots.map(s=>s.code).join();if(key===actsKey)return;actsKey=key;
+  $('acts').innerHTML=st.slots.map(s=>
+   `<button type="button" class="act ${s.key}" data-k="${s.key}" ${s.code?'':'disabled'}><span class="o">${ICON[s.key]}</span><span>${VN[s.key]}</span><span class="c">${s.code||'chưa học'}</span></button>`).join('');
+}
+
+// Phat lenh = GIU nut ~0.9s. Bam nhanh, phim Enter/Space, cuon trang deu KHONG phat.
+const HOLD_MS=900;let hold=null,sentAt=0;
+function holdEnd(){if(!hold)return;clearTimeout(hold.t);hold.b.classList.remove('hold');hold=null;}
+$('acts').addEventListener('pointerdown',e=>{
+  const b=e.target.closest('.act');if(!b||b.disabled||e.button>0)return;
+  holdEnd();b.classList.add('hold');
+  hold={b,t:setTimeout(()=>{const k=b.dataset.k;holdEnd();sentAt=Date.now();if(navigator.vibrate)navigator.vibrate(40);send(k);},HOLD_MS)};
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>$('acts').addEventListener(ev,e=>{
+  if(hold&&!(ev==='pointerleave'&&e.target!==hold.b))holdEnd();},true));
+$('acts').addEventListener('click',e=>{const b=e.target.closest('.act');if(b&&!b.disabled&&!hold&&Date.now()-sentAt>800)toast('Giữ nút khoảng 1 giây để phát');});
+$('acts').addEventListener('contextmenu',e=>e.preventDefault());
+
+async function send(k){
+  beam={rev:false,until:performance.now()+1300};
+  if(MODE==='mqtt'){
+    // retain PHAI la false: broker giu lai lenh thi mach se nhan lai no moi lan noi lai
+    if(!mc||!mc.connected){toast('Chưa nối được broker');return;}
+    mc.publish('cua/'+CLOUD.id+'/cmd',k,{qos:1,retain:false});
+    toast('Đã gửi '+VN[k]);
+    return;
+  }
+  try{const r=await api('/api/send?slot='+k,{method:'POST'});toast(r.ok?'Đã phát '+VN[k]:'Lỗi khi phát');}
+  catch(e){toast('Không gửi được lệnh');}
+  load();
+}
+
+let lastDoor='';
+function doorUI(){
+  if(!st)return;
+  const p=Math.round(pos*100),moving=!!dir;
+  const left=Math.ceil((dir>0?1-pos:pos)*travel/1000);
+  const s=!known?'Chưa rõ vị trí':moving?(dir>0?'Đang mở… còn ~'+left+'s':'Đang đóng… còn ~'+left+'s'):
+          p>=100?'Mở hết':p<=0?(locked?'Đóng kín · đã khoá':'Đóng kín'):'Dừng ở '+p+'%';
+  const key=known+'|'+p+s+locked;if(key===lastDoor)return;lastDoor=key;
+  $('dpct').textContent=known?p+'%':'—';
+  const e=$('dst');e.textContent=s;e.className='state'+(!known?' mv':locked?' lk':moving?' mv':'');
+  const bar=$('dbar');bar.style.width=known?Math.max(2,p)+'%':'0';
+  bar.style.background=locked?'var(--dg)':moving?'linear-gradient(90deg,#5b8cff,#8fb0ff)':'linear-gradient(90deg,#22c55e,#6ee59b)';
+  $('mshut').style.height=known?Math.max(6,100-p)+'%':'100%';
+  $('mdoor').classList.toggle('locked',locked);
+  $('dnote').textContent=known?'Mạch không có cảm biến cửa — vị trí là ước lượng theo lệnh đã phát và remote mạch nghe được.'
+                              :'Mạch vừa khởi động nên chưa biết cửa đang ở đâu. Bấm Mở hoặc Đóng một lần để mạch bắt đầu theo dõi.';
+}
+
+function sigUI(){
+  const g=st.sig||{},sq=$('sq'),arc=$('garc'),lb=$('slb'),inf=$('sinfo');
+  $('gv').classList.toggle('live',g.live>0);
+  const set=(txt,col,frac,label,info)=>{sq.innerHTML=txt;sq.style.color=col;arc.style.stroke=col;
+    arc.style.strokeDashoffset=263.9*(1-frac);lb.textContent=label;lb.style.color=col;inf.textContent=info;};
+  const nm=g.slot>=0?'nút '+VN[st.slots[g.slot].key]:'mã lạ '+g.code;
+  if(g.live>0){set(g.live+'<small>khung</small>','#5b8cff',1,'Đang nhận…','Cứ giữ nút trên remote.');$('sago').textContent='';return;}
+  if(g.slot==-9){set('—','#5b6579',0,'Chưa đo lần nào','Bấm giữ remote thật để đo.');$('sago').textContent='';return;}
+  $('sago').textContent=g.ago+'s trước';
+  if(g.n<3){set(g.n+'<small>khung</small>','#ef4444',.04,'Quá yếu — chỉ lọt vài khung',nm+' · bấm giữ lâu hơn hoặc đưa remote lại gần.');return;}
+  const p=Math.round(g.n*100/g.exp),c=qColor();
+  const lab=p>=85?'Tốt':p>=60?'Tạm được':'Yếu — dễ bấm không ăn';
+  const tip=p>=85?'':p>=60?' Nên dời mạch gần cửa hơn.':' Dời mạch/anten lại gần hộp nhận.';
+  set(p+'%',c,p/100,lab,nm+' · nhận '+g.n+'/'+g.exp+' khung trong '+(g.ms/1000).toFixed(1)+'s.'+tip);
+}
+
+function learnUI(){const on=st.learn==1;$('tg').classList.toggle('on',on);
+  const l=$('lst');l.textContent=on?'đang thu — bấm nút trên remote':'đang tắt';l.style.color=on?'#9bb8ff':'var(--dim)';}
+
+function capsUI(){
+  const on=st.learn==1;
+  if(!on&&!st.caps.length){$('caps').innerHTML='';return;}
+  $('caps').innerHTML=(st.caps.length?st.caps.map(x=>{
+    const m=st.slots.find(s=>s.code&&s.code==x.code);
+    return `<div class="cap"><div class="cap-h"><span class="code">${x.code}</span>${m?`<span class="tag">trùng nút ${VN[m.key]}</span>`:`<span class="meta" style="margin:0">${x.ago}s trước</span>`}</div>
+      <div class="meta">${x.bits} bit · giao thức ${x.proto} · ${x.delay}µs — gán cho nút:</div>
+      <div class="chips">${st.slots.map(s=>`<button class="ch" onclick="assign('${s.key}',${x.i})">${VN[s.key]}</button>`).join('')}</div></div>`;}).join('')
+   :'<div class="empty">Chưa bắt được mã nào. Bấm remote sát mạch thu.</div>')
+   +(st.caps.length?'<button class="btn gh" onclick="clr()">Xoá danh sách</button>':'');
+}
+
+function dur(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
+ return d?d+' ngày <small>'+h+' giờ</small>':h?h+' giờ <small>'+m+' phút</small>':m+' <small>phút</small>';}
+function wifiUI(){
+  const t=$('wtag');
+  $('wn').textContent=st.ssid||'Chưa khai báo';
+  // Doi WiFi chi lam duoc tu mang rieng cua mach - mach tu tu choi, day chi la cho khop
+  const onAP=MODE==='http'&&st.ap==1;
+  $('wf').style.display=onAP?'':'none';
+  $('wapn').style.display=onAP?'none':'';
+  if(MODE==='mqtt'){
+    $('wn').textContent='Qua Internet';
+    $('wi').textContent='Lệnh đi qua broker MQTT, không gọi thẳng vào mạch';
+    t.textContent=mqOnline?'Mạch đang sống':'Mạch mất kết nối';t.className=mqOnline?'tag':'tag w';
+  }
+  else if(st.stast==2){$('wi').textContent=st.staip+' · cuacuon.local';t.textContent='Đã kết nối';t.className='tag';}
+  else if(st.stast==1){$('wi').textContent='Đang kết nối… (tối đa 20 giây)';t.textContent='Đang nối';t.className='tag b';}
+  else if(st.stast==3){$('wi').textContent=st.stamsg;t.textContent='Lỗi';t.className='tag w';}
+  else{$('wi').textContent='Đang dùng mạng riêng của mạch: CuaCuon-Setup';t.textContent='Chưa nối';t.className='tag n';}
+  // Chi ra may nao dang goi hong - gan nhu luon la mot tab trinh duyet cu con mo
+  const bad=st.sys&&st.sys.pinbad;
+  $('pinw').style.display=bad?'':'none';
+  if(bad)$('pinw').innerHTML='Máy <b>'+bad+'</b> vừa bị khoá vì sai PIN nhiều lần — thường là một tab trình duyệt cũ còn mở. Đóng tab đó đi.';
+  const y=st.sys;if(!y)return;
+  $('s_up').innerHTML=dur(y.up);
+  $('s_rssi').innerHTML=st.staok?y.rssi+' <small>dBm · '+(y.rssi>-60?'rất tốt':y.rssi>-70?'ổn':y.rssi>-80?'yếu':'rất yếu')+'</small>':'— <small>chưa nối</small>';
+  $('s_heap').innerHTML=Math.round(y.heap/1024)+' <small>KB · thấp nhất '+Math.round(y.minheap/1024)+'</small>';
+  $('s_drop').innerHTML=y.drops+' <small>lần · bật do '+y.boot+'</small>';
+  const ws=$('ws');if(!ws.value&&st.ssid&&document.activeElement!==ws)ws.value=st.ssid;
+}
+
+async function tog(){const on=st&&st.learn==1;
+ await api('/api/learn?on='+(on?0:1),{method:'POST'});
+ toast(on?'Đã tắt chế độ học':'Đã bật — bấm remote đi');load();}
+async function assign(k,i){await api('/api/assign?slot='+k+'&idx='+i,{method:'POST'});toast('Đã gán cho nút '+VN[k]);load();}
+async function clr(){await api('/api/clear',{method:'POST'});load();}
+
+let scanned=false;
+async function scan(){
+ const b=$('sbt');b.textContent='…';b.disabled=true;
+ try{const l=await (await api('/api/scan')).json();scanned=true;
+  $('wsel').innerHTML='<option value="">— '+l.length+' mạng —</option>'
+   +l.map(n=>{const bar=n.r>-55?'▮▮▮▮':n.r>-67?'▮▮▮':n.r>-78?'▮▮':'▮';
+     return '<option value="'+n.s.replace(/"/g,'&quot;')+'">'+bar+'  '+n.s.replace(/</g,'&lt;')+'</option>';}).join('');
+  toast('Tìm thấy '+l.length+' mạng');}catch(e){toast('Dò thất bại');}
+ b.textContent='Dò';b.disabled=false;}
+function pick(){const v=$('wsel').value;if(v){$('ws').value=v;$('wp').focus();}}
+async function savewifi(){
+ const s=$('ws').value.trim(),p=$('wp').value;
+ if(!s){toast('Chưa chọn mạng WiFi');return;}
+ toast('Đã lưu — đang kết nối');
+ await api('/api/wifi?ssid='+encodeURIComponent(s)+'&pass='+encodeURIComponent(p),{method:'POST'});
+ $('wp').value='';setTimeout(load,600);}
+
+let showLink=true;
+function tgl(k){
+  if(k==='xray'){document.body.classList.toggle('xray');$('bx').classList.toggle('on');}
+  if(k==='auto'){auto=!auto;swayBase=rz;t0=performance.now();$('bauto').classList.toggle('on',auto);}
+  if(k==='lbl'){document.body.classList.toggle('nolbl');$('blbl').classList.toggle('on');}
+  if(k==='link'){showLink=!showLink;$('blink').classList.toggle('on',showLink);}
+}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800);}
+
+if(MODE==='mqtt'){document.body.classList.add('cloud');mqStart();}else load();
+requestAnimationFrame(frame);
+</script></body></html>
