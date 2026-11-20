@@ -162,6 +162,14 @@ h2{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:650;colo
 .act[disabled]{opacity:.35;cursor:default;box-shadow:none}
 .act[disabled]:active{transform:none}
 .dot.bad{background:var(--wa)}.dot.live{background:var(--ac)}
+/* trang thai do camera ham nhin thay (board hamcam gui len broker, topic cua/<id>/cam) */
+.camrow{display:flex;align-items:center;gap:9px;margin:-6px 0 16px;padding:9px 12px;
+ background:#0f131b;border:1px solid var(--line);border-radius:12px;font-size:12.5px;color:#c3cbd8}
+.camrow b{font-weight:700;color:var(--tx)}
+.camrow .cw{color:var(--dim);font-size:11.5px;margin-left:auto;white-space:nowrap}
+.camrow.al{border-color:var(--dg);background:rgba(239,68,68,.1);color:#ffb4b4}
+.camrow.al b{color:#ff8a8a}
+.camrow.old{opacity:.6}
 .gt small{font-size:11px;font-weight:500;margin-left:2px;color:var(--dim)}
 .gv.live #garc{animation:gp 1s ease-in-out infinite}
 @keyframes gp{50%{opacity:.45}}
@@ -242,6 +250,11 @@ body.cloud #ssig,body.cloud #slearn,body.cloud #wf{display:none}
       </div>
     </div>
     <div class="meter"><i id="dbar"></i></div>
+    <div class="camrow" id="camrow" hidden>
+      <span class="dot" id="camdot"></span>
+      <span id="camdoor">—</span>
+      <span class="cw" id="camwhen"></span>
+    </div>
     <div class="grid" id="acts"></div>
     <div class="foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span><b style="color:#c3cbd8">Giữ nút ~1 giây để phát lệnh.</b> <span id="dnote">Mạch không có cảm biến cửa — vị trí là ước lượng theo lệnh đã phát và remote mạch nghe được.</span></span></div>
   </section>
@@ -492,6 +505,29 @@ function mqState(m){
   sys:{up:m.up,heap:m.heap,minheap:m.heap,block:m.heap,rssi:m.rssi,drops:0,pinrej:0,boot:''}};
 }
 
+// ---- trang thai cua do CAMERA ham nhin thay. Board hamcam gui (retained) len topic cua/<id>/cam khi doi va 60 giay
+// mot lan; qua 3 phut khong co ban moi thi coi la camera mat ket noi. Mach khong co cam bien cua, day la mat thay.
+let cam=null;
+const hm=t=>{const d=new Date(t*1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+function camShow(s){
+ if(s)cam=s;
+ s=cam;if(!s||!s.ts)return;
+ const old=Date.now()/1000-s.ts>180;
+ $('camdoor').innerHTML=old?'Camera hầm: <b>mất kết nối</b>'
+   : s.alarm?'<b>CÓ NGƯỜI Ở CỬA — ĐỪNG ĐÓNG</b>'
+   : s.checking?'Camera đang soi cửa…'
+   : s.at_door?'Camera thấy <b>có người ở cửa</b>'
+   : s.occupied?'Camera: cửa trống, trong hầm <b>có người</b>'
+   : 'Camera: cửa trống, hầm trống';
+ $('camwhen').textContent=old?'lần cuối '+hm(s.ts)
+   : s.checking?'' : (s.checked_at?'soi lúc '+hm(s.checked_at):'chưa soi lần nào')+(s.one_cam&&s.patrol===false?' · soi định kỳ TẮT':'');
+ $('camdot').className='dot '+(old?'':s.alarm||s.at_door?'bad':s.occupied?'live':'on');
+ $('camrow').classList.toggle('al',!old&&!!s.alarm);
+ $('camrow').classList.toggle('old',old);
+ $('camrow').hidden=false;
+}
+setInterval(()=>camShow(),30000);
+
 function mqStart(){
  if(typeof mqtt==='undefined'){$('sub').textContent='Không tải được thư viện MQTT — kiểm tra mạng.';return;}
  const c=mqCfg();
@@ -502,9 +538,10 @@ function mqStart(){
   clientId:'web-'+Math.random().toString(16).slice(2,10),   // trung client id la hai ben day nhau ra
   keepalive:30,reconnectPeriod:4000,connectTimeout:8000,clean:true});
 
- mc.on('connect',()=>{mc.subscribe([t+'/state',t+'/online'],{qos:0});});
+ mc.on('connect',()=>{mc.subscribe([t+'/state',t+'/online',t+'/cam'],{qos:0});});
  mc.on('message',(topic,buf)=>{
   const v=buf.toString();
+  if(topic===t+'/cam'){try{camShow(JSON.parse(v));}catch(e){}return;}
   if(topic===t+'/online'){
    mqOnline=v==='1';
    if(!mqOnline)offline(); else if(st)apply();
